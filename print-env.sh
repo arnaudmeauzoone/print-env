@@ -10,10 +10,6 @@ HEIGHT=40
 WIDTH=60
 CHOICE_HEIGHT=50
 
-OPTIONS=(1 "BOB_LEPONGE"
-         2 "ALICE_AU_PAYS_DES_MERVEILLES"
-         3 "HARRY_POTTER")
-
 choix_expediteur () {
 
   BACKTITLE="Imprim Envellope"
@@ -29,17 +25,9 @@ choix_expediteur () {
                   2>&1 >/dev/tty)
 
   clear
-  case $CHOICE in
-          1)
-              exp=$BOB_LEPONGE
-              ;;
-          2)
-              exp=$ALICE_AU_PAYS_DES_MERVEILLES
-              ;;
-          3)
-              exp=$HARRY_POTTER
-              ;;
-  esac
+  aux=${OPTIONS[$(($CHOICE * 2)) - 1]}
+  exp=${!aux}
+
 
   exp2=$(echo "$exp" | tr -d "<br>")
 
@@ -60,17 +48,9 @@ choix_destinataire () {
                   2>&1 >/dev/tty)
 
   clear
-  case $CHOICE in
-          1)
-              add=$BOB_LEPONGE
-              ;;
-          2)
-              add=$ALICE_AU_PAYS_DES_MERVEILLES
-              ;;
-          3)
-              add=$HARRY_POTTER
-              ;;
-  esac
+
+  aux=${OPTIONS[$(($CHOICE * 2)) - 1]}
+  add=${!aux}
 
 }
 

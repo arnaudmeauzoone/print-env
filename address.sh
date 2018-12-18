@@ -1,5 +1,9 @@
 #!/bin/bash
 
+OPTIONS=(1 "BOB_LEPONGE"
+         2 "ALICE_AU_PAYS_DES_MERVEILLES"
+         3 "HARRY_POTTER")
+
 BOB_LEPONGE="
 BOB L'EPONGE <br>
 ANANAS DANS LA MER <br>
