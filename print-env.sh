@@ -2,13 +2,13 @@
 
 source ./address.sh
 
-add=""
-exp=""
-exp2=""
+add="" #Contient l'adresse du destinataire
+exp="" #Contient l'adress de l'expéditeur au recto de l'enveloppe
+exp2="" #Contient l'adress de l'expéditeur au verso de l'enveloppe
 
-HEIGHT=40
-WIDTH=60
-CHOICE_HEIGHT=50
+HEIGHT=40 #Hauteur de la fenetre de dialogue
+WIDTH=60 #Largeur de la fenetre de dialogue
+CHOICE_HEIGHT=50 #Hauteur de la fenetre de choix
 
 choix_expediteur () {
 
@@ -68,8 +68,8 @@ creer_html () {
   }
   #destinataire {
       position: absolute;
-      left: 160mm;
-      top: 70mm;
+      left: 140mm;
+      top: 60mm;
   }
   #expediteur2 {
       position: absolute;
