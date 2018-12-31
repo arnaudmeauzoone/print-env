@@ -81,7 +81,7 @@ readonly -A LOG_LEVELS=([0]="Null" [1]="${BIRed}error${NC}" [2]="${BIGreen}info$
 
 ## Some files
 readonly BLACKHOLE='/dev/null'
-readonly TMP_DIR=$(mktemp -d)
+readonly TMP_DIR=$(mktemp -d -p "$(pwd)")
 
 ## Usefull Var
 declare RETVAL
@@ -97,7 +97,7 @@ declare ERRPAR
 declare INFO_MESSAGE=$TRUE
 
 #Program DATA
-readonly PROG_NAME="$(basename ${0})"
+readonly PROG_NAME="$(basename "${0}")"
 readonly VERSION="0.0.1"
 
 source ./address.sh
@@ -106,8 +106,8 @@ declare PRINTER="HP_ENVY_5640_series"
 readonly DEFAUT_PRINTER="HP_ENVY_5640_series"
 readonly MEDIA='EnvDLA'
 
-readonly TMP_HTML='tmp.html'
-readonly TMP_PDF='tmp.pdf'
+readonly TMP_HTML=$TMP_DIR/"tmp.html"
+readonly TMP_PDF=$TMP_DIR/"tmp.pdf"
 
 declare USR_EXP_ADDR=""
 declare USR_DEST_ADDR=""
@@ -120,17 +120,26 @@ declare SHOW_LIST=$FALSE
 readonly PREFIX_ADDR="ADDR_"
 declare DIALOGUE_OPTIONS=""
 
+readonly CMD_WKHTMLTOPDF="wkhtmltopdf"
+readonly CMD_LP="lp"
+readonly CMD_DIALOG="dialog"
+
+
 readonly HEIGHT=17 #Hauteur de la fenetre de dialogue
 readonly WIDTH=60 #Largeur de la fenetre de dialogue
 readonly CHOICE_HEIGHT=50 #Hauteur de la fenetre de choix
 
 usage(){
 
-  info "Usage: $PROG_NAME -d <domain name> -o <result file> [-vhV]"
-  info "Recupere les sous domaines a partir d'un nom de domaine"
+  info "Usage: $PROG_NAME -e <expediteur> -d <destinataire> [-ilnhvV]"
   info ""
-  info "-d             indique le nom de domaine"
-  info "-o             indique le fichier de sortie en .csv"
+  info "Imprime votre adresse et l'adresse du destinataire sur"
+  info "Une Enveloppe"
+  info ""
+  info "-e             indique l' expéditeur"
+  info "-d             indique le destinataire"
+  info "-i             Permet d'avoir une interface graphique"
+  info "-l             Liste les adresses disponibles"
   info "-v             indique la version du programme"
   info "-h             affiche l'aide"
   info "-V             change la verbosité (defaut == 2)"
@@ -141,6 +150,12 @@ usage(){
   info "               -V 4: affiche les commandes utilisées (debug)"
   info "-n             Supprime les méssages: [${BIRed}error${NC}], [${BIGreen}info${NC}] et [${BIBlue}debug${NC}]"
   info ""
+  info "Exemple:"
+  info ""
+  info "        ./print-env.sh -e BOB_LEPONGE -d HARRY_POTTER"
+  info "        ./print-env.sh -h"
+  info "        ./print-env.sh -i"
+  info "        ./print-env.sh -l"
 
 }
 
@@ -153,11 +168,19 @@ version(){
 .log () {
   local LEVEL=${1}
   shift
-  if [ ${VERBOSE} -ge ${LEVEL} ]; then
+  if [ "${VERBOSE}" -ge "${LEVEL}" ]; then
     if [ $INFO_MESSAGE = $TRUE ]; then
-      echo -e "[${LOG_LEVELS[$LEVEL]}]" "$@"
+      if [ $LEVEL -eq "1" ]; then
+        >&2 echo -e "[${LOG_LEVELS[$LEVEL]}]" "$@"
+      else
+        echo -e "[${LOG_LEVELS[$LEVEL]}]" "$@"
+      fi
     else
-      echo -e "$@"
+      if [ $LEVEL -eq "1" ]; then
+        >&2 echo -e "$@"
+      else
+        echo -e "$@"
+      fi
     fi
   fi
 }
@@ -188,7 +211,11 @@ do_cmd()
 
 error(){
 
-  .log 1 "$1"
+  .log 1 "${On_Red}$1${NC}"
+
+  if [ ! -z $2 ]; then
+    $2
+  fi
   exit 1
 
 }
@@ -210,6 +237,25 @@ remove_temp_files(){
   do_cmd "rm -rf ${TMP_DIR}" \
   "Cleaning Files"
   exit 1
+
+}
+
+check_all () {
+
+  local aux=${!CMD_*}
+  local ALL_CMD=( ${aux} )
+  local RESULT_CMD
+
+  for each in "${ALL_CMD[@]}"
+  do
+    set +e
+    command -v ${!each} > $BLACKHOLE
+    RESULT_CMD=$?
+    set -e
+    if [ ! $RESULT_CMD -eq 0 ]; then
+      error "${!each} n'est pas installé sur votre systeme !"
+    fi
+  done
 
 }
 
@@ -286,6 +332,7 @@ parse_options(){
   fi
 
   if [ $SHOW_LIST = $TRUE ]; then
+    get_addresses
     show_list
     exit 0
   fi
@@ -299,12 +346,16 @@ parse_options(){
 
 show_list () {
 
-  get_addresses
+  info "Les adresses disponibles sont:"
+  info ""
 
   for each in "${ALL_ADDR[@]}"
   do
     info "$each"
   done
+
+  info ""
+  info "Pour ajouter plus d'adresses voir le fichier address.sh"
 
 }
 
@@ -337,7 +388,7 @@ use_dialogue_exp () {
   local TITLE="Imprim Enveloppe" #Le titre en haut de la fenetre
   local MENU="Qui envoie l'enveloppe ?" #La question sur le menu
 
-  local CHOICE=$(dialog --clear \
+  local CHOICE=$($CMD_DIALOG --clear \
                   --backtitle "$BACKTITLE" \
                   --title "$TITLE" \
                   --menu "$MENU" \
@@ -345,7 +396,7 @@ use_dialogue_exp () {
                   "${DIALOGUE_OPTIONS[@]}" \
                   2>&1 >/dev/tty)
 
-  RETVAL=${DIALOGUE_OPTIONS[$(($CHOICE * 2)) - 1]} #Permet de récupérer l'index du choix dans le tableau
+  RETVAL=${DIALOGUE_OPTIONS[$(("${CHOICE}" * 2)) - 1]} #Permet de récupérer l'index du choix dans le tableau
 
   clear # Efface l'écrant
 
@@ -366,7 +417,7 @@ choix_expediteur () {
     EXP_ADDR=${!AUX}
     EXP_ADDR2=$(echo "$EXP_ADDR" | tr -d "<br>")
   else
-    error "L'adresse expéditeur donnée en parametre est inconnue"
+    error "L'adresse expéditeur: ${USR_EXP_ADDR} donnée en parametre est inconnue" "show_list"
   fi
 
 }
@@ -377,7 +428,7 @@ use_dialogue_dest () {
   local TITLE="Imprim Enveloppe" #Le titre en haut de la fenetre
   local MENU="A quelle adresse envoyer l'envellope ?" #La question sur le menu
 
-  local CHOICE=$(dialog --clear \
+  local CHOICE=$($CMD_DIALOG --clear \
                   --backtitle "$BACKTITLE" \
                   --title "$TITLE" \
                   --menu "$MENU" \
@@ -385,7 +436,7 @@ use_dialogue_dest () {
                   "${DIALOGUE_OPTIONS[@]}" \
                   2>&1 >/dev/tty)
 
-  RETVAL=${DIALOGUE_OPTIONS[$(($CHOICE * 2)) - 1]} #Permet de récupérer l'index du choix dans le tableau
+  RETVAL=${DIALOGUE_OPTIONS[$(("${CHOICE}" * 2)) - 1]} #Permet de récupérer l'index du choix dans le tableau
 
   clear # Efface l'écrant
 
@@ -395,7 +446,7 @@ use_dialogue_dest () {
 choix_destinataire () {
 
   if [ $DIALOGUE = $TRUE ]; then
-    use_dialogue_exp
+    use_dialogue_dest
     USR_DEST_ADDR=$RETVAL
   else
     USR_DEST_ADDR=$ARG_DEST_ADDR
@@ -405,14 +456,15 @@ choix_destinataire () {
     local AUX=$PREFIX_ADDR$USR_DEST_ADDR
     DEST_ADDR=${!AUX}
   else
-    error "L'adresse destinataire donnée en parametre est inconnue"
+    show_list
+    error "L'adresse expéditeur: ${USR_DEST_ADDR} donnée en parametre est inconnue" "show_list"
   fi
 
 }
 
 creer_html () {
 
-  cat << _EOF_ > tmp.html
+  cat << _EOF_ > "${TMP_HTML}"
   <!DOCTYPE html>
   <html>
   <head>
@@ -458,7 +510,8 @@ _EOF_
 
 creer_pdf () {
 
-  wkhtmltopdf -s DLE -O Landscape tmp.html tmp.pdf >/dev/null 2>&1
+  do_cmd "$CMD_WKHTMLTOPDF -s DLE -O Landscape $TMP_HTML $TMP_PDF" \
+         "Creation du PDF"
 
   # DLE le format enveloppe
   # Landscape pour mettre le PDF en portrait
@@ -469,7 +522,8 @@ creer_pdf () {
 
 imprimer_envellope () {
 
-  lp -d HP_ENVY_5640_series -o media=EnvDLA -o sides=two-sided-short-edge -o landscape tmp.pdf >/dev/null 2>&1
+  do_cmd "$CMD_LP -d $PRINTER -o media=EnvDLA -o sides=two-sided-short-edge -o landscape $TMP_PDF" \
+         "Impression sur imprimante: $PRINTER"
 
 }
 
@@ -479,13 +533,15 @@ parse_options "${@}"
 
 trap remove_temp_files INT TERM HUP EXIT SIGINT
 
+check_all
+
 get_addresses
 create_options
 choix_expediteur
 choix_destinataire
 creer_html
 creer_pdf
-#imprimer_envellope
+imprimer_envellope
 
 }
 
