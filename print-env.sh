@@ -242,9 +242,10 @@ remove_temp_files(){
 
 check_all () {
 
-  local aux=${!CMD_*}
-  local ALL_CMD=( ${aux} )
-  local RESULT_CMD
+  local aux ALL_CMD RESULT_CMD
+
+  aux=${!CMD_*}
+  ALL_CMD=( ${aux} )
 
   for each in "${ALL_CMD[@]}"
   do
